@@ -43,11 +43,10 @@ def load_dataset(data_root, dataset, split):
             "train": f"{data_root}/gpt-4o-2024-08-06_antique_train_1_grouped/gpt-4o-2024-08-06_antique_train_groups.json",
             "test": f"{data_root}/gpt-4o-2024-08-06_antique_test_1_grouped/gpt-4o-2024-08-06_antique_test_groups.json"
         },
-        # # Add later when available
-        # "neurips": {
-        #     "train": f"{data_root}/gpt-4o-2024-08-06_neurips_train_1_grouped/gpt-4o-2024-08-06_neurips_train_groups.json",
-        #     "test": f"{data_root}/gpt-4o-2024-08-06_neurips_test_1_grouped/gpt-4o-2024-08-06_neurips_test_groups.json"
-        # }
+        "neurips": {
+            "train": f"{data_root}/gpt-4o-2024-08-06_neurips_train_1_grouped/gpt-4o-2024-08-06_neurips_train_groups.json",
+            "test": f"{data_root}/gpt-4o-2024-08-06_neurips_test_1_grouped/gpt-4o-2024-08-06_neurips_test_groups.json"
+        }
     }
 
     if dataset not in mapping or split not in mapping[dataset]:
@@ -615,7 +614,7 @@ def run_for_dataset(dataset: str, use_ling: bool, use_llm: bool, classifier: str
 
 def main():
     parser = argparse.ArgumentParser(description="Base and augmented detector for LLM-judgement detectability")
-    parser.add_argument("--datasets", nargs="*", default=["helpsteer2", "helpsteer3", "antique"],
+    parser.add_argument("--datasets", nargs="*", default=["helpsteer2", "helpsteer3", "antique","neurips"],
                         help="Datasets to run: helpsteer2, helpsteer3, antique")
     parser.add_argument("--use_linguistic", action="store_true", help="Augment with linguistic features")
     parser.add_argument("--use_llm_enhanced", action="store_true", help="Augment with LLM-enhanced features")
