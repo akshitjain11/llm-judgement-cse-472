@@ -16,7 +16,7 @@ Implements:
   1. Group Size Analysis (k = 1,2,4,8,16)
   2. Rating Scale Analysis (helpsteer2 & helpsteer3)
   3. Judgment Dimension Number Analysis (helpsteer2 & neurips)
-  4. Optional visualization of accuracy/F1 vs parameter.
+  4. Visualization of accuracy/F1 vs parameter.
 
 Constraints: Keeps pipeline within previously defined steps (load data → instance model → group aggregation).
 """
@@ -416,7 +416,7 @@ def try_plot(df: pd.DataFrame, out_dir: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Detectability analysis experiments")
-    parser.add_argument("--datasets", nargs="*", default=["helpsteer2", "helpsteer3", "neurips"], help="Datasets to include")
+    parser.add_argument("--datasets", nargs="*", default=["helpsteer2", "helpsteer3", "neurips", "antique"], help="Datasets to include (antique added by default)")
     parser.add_argument("--group_sizes", nargs="*", type=int, default=[2,4,8,16], help="Group sizes for group-level analysis (k>1). k=1 always included")
     parser.add_argument("--rating_scales_helpsteer2", nargs="*", default=["continuous","binary","3point"], help="Scale variants for helpsteer2")
     parser.add_argument("--rating_scales_helpsteer3", nargs="*", default=["continuous","binary","ternary"], help="Scale variants for helpsteer3")
