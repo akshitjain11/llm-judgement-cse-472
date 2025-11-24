@@ -263,21 +263,9 @@ def run_for_dataset(dataset: str, use_ling: bool, use_llm: bool, classifier: str
         keys = []
         for it in data_items:
             ex = (it.get("examples") or [{}])[0]
-            ctx = ex.get("context", [])
-            # find last assistant and its preceding user prompt
-            last_assistant = None
-            last_user_before = None
-            for i in range(len(ctx) - 1, -1, -1):
-                if ctx[i].get("role") == "assistant":
-                    last_assistant = ctx[i].get("content", "")
-                    # find previous user
-                    for j in range(i - 1, -1, -1):
-                        if ctx[j].get("role") == "user":
-                            last_user_before = ctx[j].get("content", "")
-                            break
-                    break
-            prompt = last_user_before or ""
-            response = last_assistant or ""
+            # helpsteer2 grouped JSON stores prompt/response at top-level
+            prompt = str(ex.get("prompt", "")).strip()
+            response = str(ex.get("response", "")).strip()
             keys.append(prompt + "\n" + response)
         return keys
 
@@ -637,4 +625,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
