@@ -13,10 +13,15 @@ from sklearn.metrics import classification_report, accuracy_score, f1_score
 
 
 JUDGMENT_FIELDS = {
-    "helpsteer2": ["helpfullness","correctness","coherence","complexiity","verbosity"],
+    # Corrected spellings and dataset field mappings to match base_detector.py
+    # helpsteer2 has five scalar judgment fields
+    "helpsteer2": ["helpfulness", "correctness", "coherence", "complexity", "verbosity"],
+    # helpsteer3 single score per example
     "helpsteer3": ["score"],
-    "antique": ["rating","confidence","soundness","presentation","contribution"],
-    "neurips": ["ranking"]
+    # antique provides a ranking list; we reduce via mean in feature extraction
+    "antique": ["ranking"],
+    # neurips uses panel-style multi-dimension review fields
+    "neurips": ["rating", "confidence", "soundness", "presentation", "contribution"],
 }
 
 DATA_ROOT = "data/dataset_detection"
@@ -77,11 +82,15 @@ def extract_base_features_labels_from_groups(data, dataset: str):
     x, y = [], []
 
     for item in data:
-        label = 1 if str(item.get("label","")).lower()=="llm" else 0
+        label = 1 if str(item.get("label","")) .lower()=="llm" else 0
         examples = item.get("examples", []) or []
 
         if not examples:
-            x.append([0.0] * len(dims))
+            # Handle empty by zero vector (dimension decided below per dataset)
+            if dataset == "antique":
+                x.append([0.0]*11)  # mean,std,min,max,range,entropy,median,skew,kurtosis,top_minus_bottom,top_minus_median
+            else:
+                x.append([0.0] * len(dims))
             y.append(label)
             continue
 
@@ -89,9 +98,42 @@ def extract_base_features_labels_from_groups(data, dataset: str):
         feat = []
         for d in dims:
             val = ex.get(d, 0.0)
-            if isinstance(val,list):
-                val = float(np.mean(val)) if len(val) > 0 else 0.0
-            feat.append(float(val))
+            if dataset == "antique" and d == "ranking" and isinstance(val, list):
+                arr = np.array(val, dtype=float) if len(val) > 0 else np.array([0.0])
+                # Sort for positional contrasts
+                sorted_arr = np.sort(arr)
+                mean = float(np.mean(arr))
+                std = float(np.std(arr))
+                mn = float(sorted_arr[0])
+                mx = float(sorted_arr[-1])
+                rng = mx - mn
+                median = float(np.median(arr))
+                # Skewness and kurtosis (Fisher definition, excess kurtosis)
+                if std > 1e-12 and arr.size > 2:
+                    centered = arr - mean
+                    m3 = np.mean(centered**3)
+                    m4 = np.mean(centered**4)
+                    skew = float(m3 / (std**3))
+                    kurt = float(m4 / (std**4) - 3.0)
+                else:
+                    skew = 0.0
+                    kurt = 0.0
+                top_minus_bottom = mx - mn  # same as range kept for clarity
+                top_minus_median = mx - median
+                eps = 1e-9
+                pos = np.abs(arr) + eps
+                probs = pos / np.sum(pos)
+                entropy = float(-np.sum(probs * np.log(probs + eps)))
+                feat.extend([mean, std, mn, mx, rng, entropy, median, skew, kurt, top_minus_bottom, top_minus_median])
+            else:
+                if isinstance(val,list):
+                    val = float(np.mean(val)) if len(val) > 0 else 0.0
+                feat.append(float(val))
+
+        # Ensure consistent dimensionality for antique (exact 11 features)
+        if dataset == "antique" and len(feat) != 11:
+            while len(feat) < 11:
+                feat.append(0.0)
 
         x.append(feat)
         y.append(label)
@@ -173,9 +215,38 @@ def extract_instance_features_from_grouped(data, dataset: str):
             feat = []
             for d in dims:
                 val = ex.get(d, 0.0)
-                if isinstance(val, list):
-                    val = float(np.mean(val)) if len(val) > 0 else 0.0
-                feat.append(float(val))
+                if dataset == "antique" and d == "ranking" and isinstance(val, list):
+                    arr = np.array(val, dtype=float) if len(val) > 0 else np.array([0.0])
+                    sorted_arr = np.sort(arr)
+                    mean = float(np.mean(arr))
+                    std = float(np.std(arr))
+                    mn = float(sorted_arr[0])
+                    mx = float(sorted_arr[-1])
+                    rng = mx - mn
+                    median = float(np.median(arr))
+                    if std > 1e-12 and arr.size > 2:
+                        centered = arr - mean
+                        m3 = np.mean(centered**3)
+                        m4 = np.mean(centered**4)
+                        skew = float(m3 / (std**3))
+                        kurt = float(m4 / (std**4) - 3.0)
+                    else:
+                        skew = 0.0
+                        kurt = 0.0
+                    top_minus_bottom = mx - mn
+                    top_minus_median = mx - median
+                    eps = 1e-9
+                    pos = np.abs(arr) + eps
+                    probs = pos / np.sum(pos)
+                    entropy = float(-np.sum(probs * np.log(probs + eps)))
+                    feat.extend([mean, std, mn, mx, rng, entropy, median, skew, kurt, top_minus_bottom, top_minus_median])
+                else:
+                    if isinstance(val, list):
+                        val = float(np.mean(val)) if len(val) > 0 else 0.0
+                    feat.append(float(val))
+            if dataset == "antique" and len(feat) != 11:
+                while len(feat) < 11:
+                    feat.append(0.0)
             X_instances.append(feat)
             group_ids.append(g_idx)
 
@@ -186,7 +257,7 @@ def extract_instance_features_from_grouped(data, dataset: str):
     return X_instances, group_ids, group_labels
 
 
-def evaluate_group_level(model,dataset:str,group_size:int):
+def evaluate_group_level(model,dataset:str,group_size:int, agg_method: str = "mean"):
     data = load_grouped_dataset(dataset, group_size)
     if data is None:
         print(f"⚠️ No grouped data for {dataset} (group_size={group_size})")
@@ -203,12 +274,24 @@ def evaluate_group_level(model,dataset:str,group_size:int):
     for p,gid in zip(proba, group_ids):
         group_scores[gid] += p
         counts[gid] += 1
-    
+
     counts[counts==0] = 1
-    group_scores /= counts
+    if agg_method == "mean":
+        group_scores /= counts
+        threshold = 0.5  # standard probability threshold
+    elif agg_method == "sum":
+        # Sum of probabilities; adapt decision threshold proportionally to group size.
+        # Rationale: if individual probs are calibrated around 0.5, a sum > 0.5*size indicates majority leaning LLM.
+        threshold = 0.5 * counts  # vector threshold per group
+    else:
+        raise ValueError(f"Unsupported aggregation method: {agg_method}")
 
     y_true = group_labels
-    y_pred = (group_scores >= 0.5).astype(int)
+    if agg_method == "sum":
+        # threshold is an array when using sum
+        y_pred = (group_scores >= threshold).astype(int)
+    else:
+        y_pred = (group_scores >= threshold).astype(int)
 
     acc = accuracy_score(y_true, y_pred)
     f1 = f1_score(y_true, y_pred)
@@ -218,11 +301,12 @@ def evaluate_group_level(model,dataset:str,group_size:int):
     print(f"Accuracy: {acc:.4f}")
     print(f"F1 Score: {f1:.4f}")
     print("\nClassification Report:")
-    print(classification_report(y_true, y_pred, digits=4))
+    print(classification_report(y_true, y_pred, digits=4, zero_division=0))
 
     return {
         "dataset": dataset,
         "group_size": group_size,
+        "agg_method": agg_method,
         "accuracy": float(acc),
         "f1_score": float(f1),
     }
@@ -257,6 +341,12 @@ def main():
         default="",
         help="Optional path to save aggregated group-level results as CSV",
     )
+    parser.add_argument(
+        "--agg_method",
+        choices=["mean", "sum"],
+        default="mean",
+        help="Aggregation of instance probabilities per group (mean or sum)",
+    )
 
     args = parser.parse_args()
 
@@ -272,7 +362,7 @@ def main():
 
         # 2. Evaluate group-level performance for each k in group_sizes
         for k in args.group_sizes:
-            res = evaluate_group_level(model, ds, k)
+            res = evaluate_group_level(model, ds, k, agg_method=args.agg_method)
             if res is not None:
                 all_results.append(res)
 
