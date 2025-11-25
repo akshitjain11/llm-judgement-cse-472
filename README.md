@@ -219,10 +219,6 @@ python bias_analysis.py --output_dir my_bias_results/
 - `bias_top_features_{dataset}.png` - Visualization of top features (color-coded by category)
 - `bias_summary.csv` - Summary across datasets
 
-**Interpretation:**
-- Higher Cohen's d → stronger discrimination between human and LLM
-- Identifies which judgment dimensions show systematic bias
-- Shows which augmented features best capture LLM characteristics
 
 ---
 
@@ -236,8 +232,7 @@ mkdir results
 python base_detector.py --save_results results/task1_base.csv
 
 # Task 2: Augmented detector
-python base_detector.py --use_linguistic --use_llm_enhanced --debug \
-  --save_results results/task2_augmented.csv
+python base_detector.py --use_linguistic --use_llm_enhanced --save_results results/task2_augmented.csv
 
 # Task 3: Group detector
 python group_detector.py --group_sizes 2 4 8 16 \
@@ -330,37 +325,12 @@ ls data/features/linguistic_feature/
 ls data/features/llm_enhanced_features/
 ```
 
-## Important Notes
-
-### Feature Engineering
-- Drops columns containing "noun_verb_ratio" as specified in requirements
-- Aggregates features by grouping when multiple rows match (mean aggregation)
-- Fills missing alignments with zeros (conservative approach)
-
-### Model Configuration
-- **Random Forest**: 200 trees, balanced class weights, random_state=42
-- **Logistic Regression**: max_iter=2000, balanced class weights, StandardScaler
-- Both use cross-platform StandardScaler for numerical stability
-
-### Group-Level Evaluation
-- Instance-level model trained on group_size=1 data
-- Instance probabilities aggregated per group
-- Group threshold: 0.5 for mean aggregation
 
 ## References
 
 - Paper 1: "From Generation to Judgment: Opportunities and Challenges of LLM-as-a-judge" (Sections 1-2)
 - Paper 2: "Who's Your Judge? On the Detectability of LLM-Generated Judgments"
-- Figure 6 referenced for visualization style
 
-## Contributing
 
-For bugs or improvements, please check data alignment with `--debug` flag first.
 
-## License
 
-This project is part of CSE 472 coursework.
-
-## Contact
-
-For questions, refer to the paper documentation and inline comments in source files.
