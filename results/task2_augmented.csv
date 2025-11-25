@@ -1,0 +1,5 @@
+dataset,use_linguistic,use_llm_enhanced,classifier,accuracy,f1,mode
+helpsteer2,True,True,rf,0.9026506024096386,0.8997020854021847,
+helpsteer3,True,True,rf,1.0,0.0,hs3-feature-source
+antique,True,True,rf,0.5000847888756995,0.5088303898700434,
+neurips,True,True,rf,0.8662868632707775,0.8714975845410629,
